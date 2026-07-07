@@ -1,0 +1,62 @@
+POST http://127.0.0.1:8000/api/register
+Content-Type: application/json
+
+{
+    "email": "mestre.pastinha2@capoeira.com",
+    "password": "Mandinga123!",
+    "graduaçao": "Verde",
+    "apelido": "Pastinha",
+    "description": "Grand maître traditionnel de la Capoeira Angola.",
+    "photo": "pastinha.jpg",
+    "isPublic": true
+}
+
+### Connexion de l'utilisateur
+POST http://127.0.0.1:8000/api/login
+Content-Type: application/json
+
+{
+  "email": "mestre.pastinha2@capoeira.com",
+  "password": "Mandinga123!"
+}
+
+### Récupérer le profil de l'utilisateur connecté
+GET http://127.0.0.1:8000/api/profile
+Accept: application/json
+
+### Modifier le profil de l'utilisateur connecté
+PUT http://127.0.0.1:8000/api/profile
+Content-Type: application/json
+
+{
+  "apelido": "Alex Canario",
+  "description": "Contra-Mestre du groupe Ginga Nagô",
+  "photo": "/Users/alexcanario/Pictures/193732040_2058170230991765_2924346569813765714_n.jpg",
+  "isPublic": true
+}
+
+### Déconnexion de l'utilisateur
+POST http://127.0.0.1:8000/api/logout
+
+### Modifier le profil de l'utilisateur connecté (Format Multi-part / Fichier)
+POST http://127.0.0.1:8000/api/profile
+Content-Type: multipart/form-data; boundary=boundary-ginga
+
+--boundary-ginga
+Content-Disposition: form-data; name="apelido"
+
+Alex Canario
+--boundary-ginga
+Content-Disposition: form-data; name="description"
+
+Contra-Mestre du groupe Ginga Nagô
+--boundary-ginga
+Content-Disposition: form-data; name="isPublic"
+
+true
+--boundary-ginga
+Content-Disposition: form-data; name="photo"; filename="avatar.jpg"
+Content-Type: image/jpeg
+
+< /Users/alexcanario/Pictures/193732040_2058170230991765_2924346569813765714_n.jpg
+--boundary-ginga--
