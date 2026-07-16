@@ -70,11 +70,18 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
     #[ORM\OneToMany(mappedBy: 'organizer', targetEntity: Event::class, cascade: ['remove'])]
     private Collection $events;
 
+    /**
+     * @var Collection<int, Event>
+     */
+    #[ORM\ManyToMany(targetEntity: Event::class, mappedBy: 'participants')]
+    private Collection $eventsParticipated;
+
     public function __construct()
     {
         $this->academies = new ArrayCollection();
         $this->teachers = new ArrayCollection();
         $this->events = new ArrayCollection();
+        $this->eventsParticipated = new ArrayCollection();
     }
 
     public function getId(): ?int
@@ -270,5 +277,32 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
     public function getEvents(): Collection
     {
         return $this->events;
+    }
+
+    /**
+     * @return Collection<int, Event>
+     */
+    public function getEventsParticipated(): Collection
+    {
+        return $this->eventsParticipated;
+    }
+
+    public function addEventsParticipated(Event $eventsParticipated): static
+    {
+        if (!$this->eventsParticipated->contains($eventsParticipated)) {
+            $this->eventsParticipated->add($eventsParticipated);
+            $eventsParticipated->addParticipant($this);
+        }
+
+        return $this;
+    }
+
+    public function removeEventsParticipated(Event $eventsParticipated): static
+    {
+        if ($this->eventsParticipated->removeElement($eventsParticipated)) {
+            $eventsParticipated->removeParticipant($this);
+        }
+
+        return $this;
     }
 }
