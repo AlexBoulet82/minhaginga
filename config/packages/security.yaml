@@ -13,17 +13,24 @@ security:
             pattern: ^/(_(profiler|wdt)|css|images|js)/
             security: false
 
-        main:
-            lazy: true
-            provider: app_user_provider
+        # 1. Le pare-feu pour intercepter le login et GÉNÉRER le token JWT
+        login:
+            pattern: ^/api/login
+            stateless: true
             json_login:
                 check_path: app_api_login
                 username_path: email
                 password_path: password
+                success_handler: lexik_jwt_authentication.handler.authentication_success
+                failure_handler: lexik_jwt_authentication.handler.authentication_failure
 
-            logout:
-                path: app_api_logout
+        # 2. Le pare-feu pour valider le token JWT sur toutes tes routes /api
+        main:
+            pattern: ^/api
+            stateless: true
+            jwt: ~
 
     access_control:
-        # On autorise tout le monde à accéder aux routes de recherche publique
+        - { path: ^/api/login, roles: PUBLIC_ACCESS }
         - { path: ^/api/public, roles: PUBLIC_ACCESS }
+        - { path: ^/api, roles: IS_AUTHENTICATED_FULLY }

@@ -5,8 +5,10 @@ namespace App\Controller;
 use App\Entity\Event;
 use App\Entity\User;
 use App\Repository\EventRepository;
+use App\Service\FileUploader; // <-- Ajouté pour le FileUploader
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
+use Symfony\Component\HttpFoundation\File\UploadedFile; // <-- Ajouté pour les fichiers uploadés
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\Routing\Attribute\Route;
@@ -173,4 +175,45 @@ class EventController extends AbstractController
             'participantsCount' => count($event->getParticipants())
         ]);
     }
-}
+   #[Route('/api/events/{id}/upload-poster', name: 'app_api_event_upload_poster', methods: ['POST'])]
+    public function uploadPoster(
+        \App\Entity\Event $event,
+        Request $request,
+        #[CurrentUser] ?User $user,
+        \App\Service\FileUploader $fileUploader,
+        EntityManagerInterface $em
+    ): JsonResponse {
+        // Sécurité : Seul l'organisateur peut modifier l'affiche
+        if (!$user || $event->getOrganizer() !== $user) {
+            return $this->json(['error' => 'Action non autorisée.'], 403);
+        }
+
+        /** @var UploadedFile $file */
+        $file = $request->files->get('poster');
+
+        if (!$file) {
+            return $this->json(['error' => 'Aucun fichier reçu.'], 400);
+        }
+
+        $allowedMimeTypes = ['image/jpeg', 'image/png', 'image/webp'];
+        if (!in_array($file->getMimeType(), $allowedMimeTypes)) {
+            return $this->json(['error' => 'Format de fichier non autorisé (uniquement JPG, PNG, WEBP).'], 400);
+        }
+
+        try {
+            // Upload du fichier dans le sous-dossier "events"
+            $fileName = $fileUploader->upload($file, 'events');
+            
+            // On enregistre le chemin de l'affiche
+            $event->setImage('/uploads/events/' . $fileName);
+            $em->flush();
+
+            return $this->json([
+                'message' => 'Affiche de l\'événement mise à jour !',
+                'imageUrl' => $event->getImage()
+            ]);
+        } catch (\Exception $e) {
+            return $this->json(['error' => $e->getMessage()], 500);
+        }
+    }
+} // <--- Assure-toi que cette accolade ferme bien la classe "EventController" !

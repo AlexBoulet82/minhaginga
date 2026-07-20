@@ -13,3 +13,8 @@ services:
             - '../src/DependencyInjection/'
             - '../src/Entity/'
             - '../src/Kernel.php'
+
+    # On configure notre FileUploader pour qu'il injecte automatiquement le bon dossier
+    App\Service\FileUploader:
+        arguments:
+            $targetDirectory: '%photos_directory%'
