@@ -36,7 +36,10 @@ class Post
     #[ORM\ManyToOne(inversedBy: 'posts')]
     #[ORM\JoinColumn(nullable: false)]
     #[Groups(['post:read'])]
-    private ?User $user = null; // <-- Majuscule à User
+    private ?User $user = null;
+
+    #[ORM\Column(length: 255)]
+    private ?string $imageUrl = null; // <-- Majuscule à User
 
     public function getId(): ?int
     {
@@ -99,6 +102,18 @@ class Post
     public function setUser(?User $user): static
     {
         $this->user = $user;
+
+        return $this;
+    }
+
+    public function getImageUrl(): ?string
+    {
+        return $this->imageUrl;
+    }
+
+    public function setImageUrl(string $imageUrl): static
+    {
+        $this->imageUrl = $imageUrl;
 
         return $this;
     }

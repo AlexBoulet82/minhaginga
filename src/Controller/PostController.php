@@ -24,6 +24,7 @@ class PostController extends AbstractController
             return $this->json(['error' => 'Utilisateur non authentifié.'], 401);
         }
 
+        // Attention : la clé attendue dans le FormData est 'media'
         $file = $request->files->get('media');
         $caption = $request->request->get('caption');
 
@@ -38,8 +39,15 @@ class PostController extends AbstractController
         // Génération d'un nom unique
         $fileName = uniqid() . '.' . ($file->guessExtension() ?? 'bin');
 
-        // Enregistrement physique du fichier dans public/uploads/posts/
-        $file->move($this->getParameter('kernel.project_dir') . '/public/uploads/posts', $fileName);
+        $uploadDir = $this->getParameter('kernel.project_dir') . '/public/uploads/posts';
+
+// Crée le dossier s'il n'existe pas encore
+if (!file_exists($uploadDir)) {
+    mkdir($uploadDir, 0777, true);
+}
+
+// Déplace le fichier
+$file->move($uploadDir, $fileName);
 
         // Création et sauvegarde du Post
         $post = new Post();
@@ -52,7 +60,17 @@ class PostController extends AbstractController
         $em->persist($post);
         $em->flush();
 
-        return $this->json($post, 201, [], ['groups' => 'post:read']);
+        return $this->json([
+            'id' => $post->getId(),
+            'mediaUrl' => 'http://localhost:8000' . $post->getMediaUrl(),
+            'mediaType' => $post->getMediaType(),
+            'caption' => $post->getCaption(),
+            'createdAt' => $post->getCreatedAt()->format(\DateTime::ATOM),
+            'user' => [
+                'email' => $user->getEmail(),
+                'avatar' => $user->getAvatar() ? 'http://localhost:8000' . $user->getAvatar() : null,
+            ]
+        ], 201);
     }
 
     #[Route('', name: 'list', methods: ['GET'])]
@@ -60,6 +78,21 @@ class PostController extends AbstractController
     {
         $posts = $postRepository->findBy([], ['createdAt' => 'DESC']);
 
-        return $this->json($posts, 200, [], ['groups' => 'post:read']);
+        $data = array_map(function (Post $post) {
+            $author = $post->getUser();
+            return [
+                'id' => $post->getId(),
+                'mediaUrl' => 'http://localhost:8000' . $post->getMediaUrl(),
+                'mediaType' => $post->getMediaType(),
+                'caption' => $post->getCaption(),
+                'createdAt' => $post->getCreatedAt()->format(\DateTime::ATOM),
+                'user' => [
+                    'email' => $author ? $author->getEmail() : 'Anonyme',
+                    'avatar' => ($author && $author->getAvatar()) ? 'http://localhost:8000' . $author->getAvatar() : null,
+                ]
+            ];
+        }, $posts);
+
+        return $this->json($data, 200);
     }
 }
