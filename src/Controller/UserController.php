@@ -10,6 +10,8 @@ use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\Routing\Attribute\Route;
 use Symfony\Component\Security\Http\Attribute\CurrentUser;
 use Symfony\Component\HttpFoundation\File\UploadedFile;
+use App\Repository\PostRepository;
+use App\Entity\Post;
 
 class UserController extends AbstractController
 {
@@ -113,4 +115,28 @@ class UserController extends AbstractController
             'message' => 'Avatar mis à jour avec succès.',
             'avatarUrl' => 'http://localhost:8000' . $relativePath,
         ], 200);
+
+        
+    }
+#[Route('/api/user/posts', name: 'app_api_user_posts', methods: ['GET'])]
+    public function userPosts(#[CurrentUser] ?User $user, PostRepository $postRepository): JsonResponse
+    {
+        if (!$user) {
+            return $this->json(['error' => 'Utilisateur non authentifié.'], 401);
+        }
+
+        // Récupérer uniquement les posts créés par cet utilisateur, du plus récent au plus ancien
+        $posts = $postRepository->findBy(['user' => $user], ['createdAt' => 'DESC']);
+
+        $data = array_map(function (Post $post) {
+            return [
+                'id' => $post->getId(),
+                'mediaUrl' => 'http://localhost:8000' . $post->getMediaUrl(),
+                'mediaType' => $post->getMediaType(),
+                'caption' => $post->getCaption(),
+                'createdAt' => $post->getCreatedAt()->format(\DateTime::ATOM),
+            ];
+        }, $posts);
+
+        return $this->json($data, 200);
     }}
