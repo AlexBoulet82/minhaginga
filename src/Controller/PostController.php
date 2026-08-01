@@ -72,27 +72,31 @@ $file->move($uploadDir, $fileName);
             ]
         ], 201);
     }
+#[Route('', name: 'list', methods: ['GET'])]
+public function list(PostRepository $postRepository): JsonResponse
+{
+    $posts = $postRepository->findBy([], ['createdAt' => 'DESC']);
 
-    #[Route('', name: 'list', methods: ['GET'])]
-    public function list(PostRepository $postRepository): JsonResponse
-    {
-        $posts = $postRepository->findBy([], ['createdAt' => 'DESC']);
+    $data = array_map(function (Post $post) {
+        // On récupère l'auteur spécifique du post
+        $author = $post->getUser();
 
-        $data = array_map(function (Post $post) {
-            $author = $post->getUser();
-            return [
-                'id' => $post->getId(),
-                'mediaUrl' => 'http://localhost:8000' . $post->getMediaUrl(),
-                'mediaType' => $post->getMediaType(),
-                'caption' => $post->getCaption(),
-                'createdAt' => $post->getCreatedAt()->format(\DateTime::ATOM),
-                'user' => [
-                    'email' => $author ? $author->getEmail() : 'Anonyme',
-                    'avatar' => ($author && $author->getAvatar()) ? 'http://localhost:8000' . $author->getAvatar() : null,
-                ]
-            ];
-        }, $posts);
+        return [
+            'id' => $post->getId(),
+            'mediaUrl' => $post->getMediaUrl() ? 'http://localhost:8000' . $post->getMediaUrl() : null,
+            'mediaType' => $post->getMediaType(),
+            'caption' => $post->getCaption(),
+            'createdAt' => $post->getCreatedAt()->format(\DateTime::ATOM),
+            // Les informations de l'auteur du post :
+            'user' => [
+                'id' => $author ? $author->getId() : null,
+                'email' => $author ? $author->getEmail() : 'Anonyme',
+                'apelido' => $author ? $author->getApelido() : null,
+                'avatar' => ($author && $author->getAvatar()) ? 'http://localhost:8000' . $author->getAvatar() : null,
+            ]
+        ];
+    }, $posts);
 
-        return $this->json($data, 200);
-    }
+    return $this->json($data, 200);
+}
 }

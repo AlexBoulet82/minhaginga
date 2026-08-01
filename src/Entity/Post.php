@@ -38,7 +38,7 @@ class Post
     #[Groups(['post:read'])]
     private ?User $user = null;
 
-    #[ORM\Column(length: 255)]
+    #[ORM\Column(length: 255, nullable: true)]
     private ?string $imageUrl = null; // <-- Majuscule à User
 
     public function getId(): ?int

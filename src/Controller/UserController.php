@@ -3,29 +3,31 @@
 namespace App\Controller;
 
 use App\Entity\User;
-use App\Repository\UserRepository;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\Routing\Attribute\Route;
 use Symfony\Component\Security\Http\Attribute\CurrentUser;
-use App\Service\FileUploader;
 use Symfony\Component\HttpFoundation\File\UploadedFile;
 
 class UserController extends AbstractController
 {
+    /**
+     * Récupération des données du profil connecté
+     */
     #[Route('/api/profile', name: 'app_api_profile', methods: ['GET'])]
     public function profile(#[CurrentUser] ?User $user): JsonResponse
     {
         if (!$user) {
-            return $this->json(['error' => 'Non authentifié'], 401);
+            return $this->json(['error' => 'Utilisateur non authentifié.'], 401);
         }
 
         $data = [
             'id' => $user->getId(),
             'email' => $user->getEmail(),
             'accountType' => $user->getAccountType(),
+            'avatar' => $user->getAvatar() ? 'http://localhost:8000' . $user->getAvatar() : null,
         ];
 
         if ($user->getAccountType() === 'academie') {
@@ -49,44 +51,66 @@ class UserController extends AbstractController
 
         return $this->json($data);
     }
-    #[Route('/api/user/upload-photo', name: 'app_api_user_upload_photo', methods: ['POST'])]
-    public function uploadPhoto(
+
+    /**
+     * Upload de la photo de profil (avatar)
+     */
+  #[Route('/api/user/avatar', name: 'app_api_user_avatar', methods: ['POST'])]
+    public function uploadAvatar(
         Request $request,
         #[CurrentUser] ?User $user,
-        FileUploader $fileUploader,
         EntityManagerInterface $em
     ): JsonResponse {
         if (!$user) {
-            return $this->json(['error' => 'Vous devez être connecté.'], 401);
+            return $this->json(['error' => 'Utilisateur non authentifié.'], 401);
         }
 
-        /** @var UploadedFile $file */
-        $file = $request->files->get('photo');
+        /** @var UploadedFile|null $file */
+        $file = $request->files->get('avatar');
 
-        if (!$file) {
-            return $this->json(['error' => 'Aucun fichier reçu.'], 400);
+        // ⚠️ Vérification : le fichier existe ET a bien été uploadé sans erreur
+        if (!$file || !$file->isValid()) {
+            return $this->json(['error' => 'Aucun fichier valide n\'a été transmis.'], 400);
         }
 
-        // Validation basique du type de fichier
+        // Validation du MIME type (effectuée uniquement si le fichier est valide)
         $allowedMimeTypes = ['image/jpeg', 'image/png', 'image/webp'];
         if (!in_array($file->getMimeType(), $allowedMimeTypes)) {
-            return $this->json(['error' => 'Format de fichier non autorisé (uniquement JPG, PNG, WEBP).'], 400);
+            return $this->json(['error' => 'Le fichier doit être une image (JPG, PNG, WEBP).'], 400);
         }
+
+        // Dossier de destination
+        $uploadDir = $this->getParameter('kernel.project_dir') . '/public/uploads/avatars';
+        if (!file_exists($uploadDir)) {
+            mkdir($uploadDir, 0777, true);
+        }
+
+        // Supprimer l'ancien avatar s'il existe
+        if ($user->getAvatar()) {
+            $oldAvatarPath = $this->getParameter('kernel.project_dir') . '/public' . $user->getAvatar();
+            if (file_exists($oldAvatarPath) && is_file($oldAvatarPath)) {
+                @unlink($oldAvatarPath);
+            }
+        }
+
+        // Nom unique de fichier
+        $fileName = uniqid('avatar_') . '.' . ($file->guessExtension() ?? 'png');
 
         try {
-            // Upload du fichier dans le sous-dossier "photos"
-            $fileName = $fileUploader->upload($file, 'photos');
-            
-            // On enregistre le chemin de la photo en base de données
-            $user->setPhoto('/uploads/photos/' . $fileName);
-            $em->flush();
-
-            return $this->json([
-                'message' => 'Photo de profil mise à jour !',
-                'photoUrl' => $user->getPhoto()
-            ]);
+            $file->move($uploadDir, $fileName);
         } catch (\Exception $e) {
-            return $this->json(['error' => $e->getMessage()], 500);
+            return $this->json(['error' => 'Erreur lors de la sauvegarde de l\'image.'], 500);
         }
-    }
-}
+
+        // Mise à jour de l'entité User
+        $relativePath = '/uploads/avatars/' . $fileName;
+        $user->setAvatar($relativePath);
+
+        $em->persist($user);
+        $em->flush();
+
+        return $this->json([
+            'message' => 'Avatar mis à jour avec succès.',
+            'avatarUrl' => 'http://localhost:8000' . $relativePath,
+        ], 200);
+    }}
